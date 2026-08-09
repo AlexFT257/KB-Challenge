@@ -55,6 +55,28 @@ def health_check(db:Session = Depends(database.get_db)):
         }
 
 @app.post(
+    "/api/products",
+    response_model=schemas.ProductResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new product",
+    tags=["Products"]
+)
+def create_product(
+    product_data: schemas.ProductCreate,
+    db: Session = Depends(database.get_db)
+):
+    try:
+        return crud.create_product(db, product_data)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Error creating product")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create product"
+        )
+
+@app.post(
     "/api/inventory/add-stock",
     response_model=schemas.StockMovementResponse,
     status_code=status.HTTP_200_OK,

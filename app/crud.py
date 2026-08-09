@@ -24,6 +24,43 @@ def get_product_by_sku(db:Session, sku: str)-> models.Product:
 
     return product
 
+def create_product(db: Session, product_data: schemas.ProductCreate) -> models.Product:
+    # Check if SKU already exists
+    existing = db.query(models.Product).filter(models.Product.sku == product_data.sku).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Product with SKU '{product_data.sku}' already exists"
+        )
+
+    product = models.Product(
+        name=product_data.name,
+        sku=product_data.sku,
+        description=product_data.description,
+        current_stock=product_data.current_stock,
+        price=product_data.price
+    )
+
+    db.add(product)
+
+    # If initial stock > 0, record it as a movement
+    if product_data.current_stock > 0:
+        db.flush()
+        movement = models.StockMovement(
+            product_id=product.id,
+            movement_type=models.MovementType.ADD,
+            quantity=product_data.current_stock,
+            previous_stock=0,
+            new_stock=product_data.current_stock,
+            reference="INITIAL-STOCK",
+            notes="Initial inventory"
+        )
+        db.add(movement)
+
+    db.commit()
+    db.refresh(product)
+    return product
+
 def validate_stock_removal(product:models.Product, quantity: int)-> None:
     if product.current_stock < quantity:
         raise HTTPException(
