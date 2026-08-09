@@ -25,7 +25,7 @@ A simple inventory management API built with FastAPI, SQLAlchemy, and PostgreSQL
 ```bash
 # 1. Clone and enter project
 git clone https://github.com/AlexFT257/KB-Challenge
-cd KB-Challenge
+cd KBChallenge
 
 # 2. Start services
 docker-compose up -d
