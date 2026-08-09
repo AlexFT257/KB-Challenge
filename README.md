@@ -4,13 +4,16 @@ A simple inventory management API built with FastAPI, SQLAlchemy, and PostgreSQL
 
 ## Features
 
+- Create products with validation
 - Add stock (supplier deliveries)
 - Remove stock (customer purchases)
 - View current stock levels for all products
 - Track stock movement history per product
 - Full audit trail with before/after stock levels
 - Prevents negative inventory
+- Input validation at API and database level
 - Row-level locking for concurrent operations
+- Clean error handling (no internal leaks)
 
 ## Tech Stack
 
@@ -19,13 +22,14 @@ A simple inventory management API built with FastAPI, SQLAlchemy, and PostgreSQL
 - **SQLAlchemy** - ORM
 - **PostgreSQL** - Database
 - **Docker** - Containerization
+- **Pytest** - Testing
 
 ## Quick Start
 
 ```bash
 # 1. Clone and enter project
 git clone https://github.com/AlexFT257/KB-Challenge
-cd KBChallenge
+cd KB-Challenge
 
 # 2. Start services
 docker-compose up -d
@@ -41,6 +45,7 @@ open http://localhost:8000/docs
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `POST` | `/api/products` | Create a new product |
 | `POST` | `/api/inventory/add-stock` | Add stock to a product |
 | `POST` | `/api/inventory/remove-stock` | Remove stock from a product |
 | `GET` | `/api/inventory/stock` | Get all products stock levels |
@@ -49,6 +54,19 @@ open http://localhost:8000/docs
 | `GET` | `/health` | Health check |
 
 ## Usage Examples
+
+### Create Product
+```bash
+curl -X POST "http://localhost:8000/api/products" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Wireless Mouse",
+    "sku": "TECH-001",
+    "description": "Ergonomic wireless mouse",
+    "current_stock": 100,
+    "price": 29.99
+  }'
+```
 
 ### Add Stock
 ```bash
@@ -92,29 +110,59 @@ curl "http://localhost:8000/api/products/TECH-001"
 ## Project Structure
 
 ```
-KBChallenge/
+inventory-system/
 ├── app/
 │   ├── main.py          # FastAPI app & endpoints
 │   ├── models.py        # SQLAlchemy models (Product, StockMovement)
-│   ├── schemas.py       # Pydantic schemas
+│   ├── schemas.py       # Pydantic schemas with validation
 │   ├── crud.py          # Business logic
 │   ├── database.py      # Database connection
 │   ├── config.py        # Configuration
 │   └── seed_data.py     # Database seeding
-├── docker-compose.yml   # Docker services
+├── test_main.py         # Test suite
+├── conftest.py          # Test configuration
+├── docker-compose.yml   # Docker services (app, db, test-db)
 ├── Dockerfile           # App container
 ├── init-db.sql          # Seed data SQL
+├── run-tests.sh         # Test runner script
 └── requirements.txt     # Python dependencies
 ```
 
 ## Data Models
 
 ### Product
-- `id`, `name`, `sku` (unique), `description`, `current_stock`, `price`
-- Tracks current inventory levels
+| Field | Type | Constraints |
+|-------|------|-------------|
+| id | INTEGER | Primary key |
+| name | VARCHAR(255) | Required, max 255 chars |
+| sku | VARCHAR(100) | Unique, alphanumeric + hyphens/underscores |
+| description | VARCHAR(1000) | Optional |
+| current_stock | INTEGER | Default 0, non-negative |
+| price | NUMERIC(10,2) | Optional, non-negative |
+| created_at | TIMESTAMP | Auto-generated |
+| updated_at | TIMESTAMP | Auto-updated |
 
 ### StockMovement
-- `product_id`, `movement_type` (add/remove), `quantity`
-- `previous_stock`, `new_stock` - before/after snapshots
-- `reference`, `notes` - for audit trail
-- Full history of all inventory changes
+| Field | Type | Constraints |
+|-------|------|-------------|
+| id | INTEGER | Primary key |
+| product_id | INTEGER | Foreign key to products |
+| movement_type | ENUM | 'add' or 'remove' |
+| quantity | INTEGER | Positive |
+| previous_stock | INTEGER | Snapshot before movement |
+| new_stock | INTEGER | Snapshot after movement |
+| reference | VARCHAR(255) | Optional, for order/PO tracking |
+| notes | VARCHAR(500) | Optional |
+| created_at | TIMESTAMP | Auto-generated |
+
+## Testing
+
+```bash
+# Run tests with test database
+./run-tests.sh
+
+# Or manually
+docker-compose up -d test-db
+DATABASE_URL=postgresql://test_user:test_pass@localhost:5433/test_db pytest test_main.py -v
+docker-compose stop test-db
+```
