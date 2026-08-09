@@ -4,10 +4,10 @@ from typing import Optional
 from decimal import Decimal
 
 class StockMovementRequest(BaseModel):
-    sku:str = Field(..., description="Product SKU")
+    sku:str = Field(..., description="Product SKU", min_length=1)
     quantity:int = Field(...,gt=0, description="Must be positive")
-    reference:Optional[str] = None
-    notes:Optional[str] = None
+    reference:Optional[str] = Field(None, max_length=255, description="Order ID, invoice, etc")
+    notes:Optional[str] = Field(None, max_length=500, description="Additional notes")
 
 class StockMovementResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -33,3 +33,7 @@ class ProductResponse(BaseModel):
     price :Optional[Decimal]
     created_at: datetime
     updated_at: Optional[datetime]
+
+class PaginationParams(BaseModel):
+    offset:int = Field(0, ge=0, description="Number of records of offset")
+    limit:int = Field(100, ge=1, description="Number of records to return")

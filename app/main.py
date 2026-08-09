@@ -2,6 +2,7 @@ from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from starlette.responses import JSONResponse
 from . import models, schemas, crud, database
 import logging
 
@@ -121,12 +122,11 @@ def get_product(sku:str, db:Session = Depends(database.get_db)):
     tags=["Inventory"]
 )
 def get_all_stock(
-    offset:int = 0,
-    limit: int = 100,
+    pagination: schemas.PaginationParams = Depends(),
     db:Session = Depends(database.get_db)
 ):
     try:
-        products = db.query(models.Product).offset(offset).limit(limit).all()
+        products = db.query(models.Product).offset(pagination.offset).limit(pagination.limit).all()
         return [schemas.ProductResponse.model_validate(p) for p in products]
     except Exception as e:
         logger.error(f"Error getting stock: {e}")
@@ -145,8 +145,7 @@ def get_all_stock(
 )
 def get_product_movements(
     sku:str,
-    offset: int =0,
-    limit:int =50,
+    pagination:schemas.PaginationParams= Depends(),
     db:Session = Depends(database.get_db)
 ):
     try:
@@ -163,8 +162,8 @@ def get_product_movements(
             db.query(models.StockMovement)
             .filter(models.StockMovement.product_id == product.id)
             .order_by(models.StockMovement.created_at.desc())
-            .offset(offset)
-            .limit(limit)
+            .offset(pagination.offset)
+            .limit(pagination.limit)
             .all()
         )
 
