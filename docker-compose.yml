@@ -1,0 +1,46 @@
+services:
+  web:
+    build: .
+    container_name: inventory-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://inventory_user:inventory_pass@db:5432/inventory_db
+      - SEED_SQL_FILE=/app/init-db.sql
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./init-db.sql:/app/init-db.sql:ro  # Mount as read-only for security
+    networks:
+      - inventory-network
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: inventory-db
+    environment:
+      - POSTGRES_USER=inventory_user
+      - POSTGRES_PASSWORD=inventory_pass
+      - POSTGRES_DB=inventory_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory_user -d inventory_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - inventory-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  inventory-network:
+    driver: bridge
